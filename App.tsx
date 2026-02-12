@@ -186,6 +186,11 @@ const App: React.FC = () => {
     patientsToday: queue.filter(q => q.status !== 'Selesai').length
   };
 
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setCurrentUser(null);
+  };
+
   if (!isAuthenticated) return (
     <Login 
       onLogin={(user) => { setIsAuthenticated(true); setCurrentUser(user); }} 
@@ -206,7 +211,7 @@ const App: React.FC = () => {
       />
       <div className="flex-1 flex flex-col min-w-0">
         <Header 
-          onLogout={() => { setIsAuthenticated(false); setCurrentUser(null); }} 
+          onLogout={handleLogout} 
           currentUser={currentUser} 
           cloudStatus={cloudStatus}
           onSync={() => pullFromCloud()}
@@ -231,7 +236,9 @@ const App: React.FC = () => {
               inventory={inventory} setInventory={setInventory} 
               transactions={transactions} setTransactions={setTransactions} 
               users={users} setUsers={(u: AppUser[]) => { setUsers(u); pushToCloud({ clinicSettings, users: u, patients, doctors, medicines, inventory, transactions, queue, medicalRecords }); }} 
-              medicalRecords={medicalRecords} setMedicalRecords={setMedicalRecords} 
+              medicalRecords={medicalRecords} setMedicalRecords={setMedicalRecords}
+              queue={queue} setQueue={setQueue}
+              onLogout={handleLogout}
             />
           )}
         </main>
