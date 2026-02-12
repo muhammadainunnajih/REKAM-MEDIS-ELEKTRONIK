@@ -29,17 +29,16 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
     setError(null);
     setSuccess(null);
 
-    // Cari user di prop users yang dikirim dari App (yang mungkin sudah di-update dari cloud)
     const foundUser = users.find(u => u.username.toLowerCase() === username.toLowerCase() && u.password === password);
     
     if (foundUser) {
       if (foundUser.status === 'Aktif') {
         onLogin(foundUser);
       } else {
-        setError('Akun Anda dinonaktifkan oleh administrator.');
+        setError('Akun Anda dinonaktifkan.');
       }
     } else {
-      setError('Username atau password tidak ditemukan. Pastikan sudah menyambungkan Klinik ID jika Anda staf baru.');
+      setError('Akun tidak ditemukan. Klik "Sambungkan Klinik ID" jika ini perangkat baru.');
     }
   };
 
@@ -53,10 +52,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
     
     setIsLoading(false);
     if (isConnected) {
-      setSuccess('Klinik berhasil disambungkan! Silakan masuk dengan akun staf Anda.');
+      setSuccess('Sinkronisasi Berhasil! Data akun sudah ditarik dari Cloud.');
       setTimeout(() => setView('LOGIN'), 1500);
     } else {
-      setError('Klinik ID tidak valid atau masalah koneksi. Pastikan Klinik ID benar dari perangkat utama.');
+      setError('Klinik ID tidak ditemukan atau internet bermasalah.');
     }
   };
 
@@ -84,8 +83,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
                <HeartPulse size={32} />
              </div>
              <div>
-               <h1 className="text-xl font-black text-white tracking-tight">EMR Klinik Sehat</h1>
-               <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Sistem Rekam Medis Cloud</p>
+               <h1 className="text-xl font-black text-white tracking-tight">EMR Klinik Cloud</h1>
+               <p className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mt-1">Multi-Device Synchronized</p>
              </div>
           </div>
         </div>
@@ -108,13 +107,13 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
           {view === 'LOGIN' ? (
             <form onSubmit={handleLoginSubmit} className="space-y-5">
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username Staf</label>
                 <div className="relative">
                   <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input 
                     type="text" required value={username} onChange={e => setUsername(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-slate-700 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all font-bold"
-                    placeholder="Contoh: nizaramr"
+                    placeholder="Masukkan username"
                   />
                 </div>
               </div>
@@ -135,35 +134,34 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
                 type="submit"
                 className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 active:scale-95 transition-all text-xs uppercase tracking-widest"
               >
-                Masuk ke Sistem
+                Masuk Sistem
               </button>
 
               <div className="pt-4 border-t border-slate-50 text-center">
-                <p className="text-[10px] text-slate-400 font-bold mb-3 uppercase tracking-tighter">Perangkat baru atau Klinik ID berubah?</p>
                 <button 
                   type="button" onClick={() => setView('CONNECT')}
                   className="text-xs font-black text-blue-600 flex items-center justify-center gap-2 mx-auto hover:bg-blue-50 px-4 py-2 rounded-xl transition-all"
                 >
-                  <Globe size={14} /> Sambungkan Klinik ID
+                  <Globe size={14} /> Hubungkan Klinik ID Baru
                 </button>
               </div>
             </form>
           ) : (
             <form onSubmit={handleConnectCloud} className="space-y-5 animate-in slide-in-from-right-4">
-              <div className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <p className="text-[10px] text-blue-600 font-bold leading-relaxed text-center">
-                  Masukkan Klinik ID dari perangkat utama untuk mengambil data user dan rekam medis terbaru.
+              <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 text-center">
+                <p className="text-[10px] text-blue-600 font-bold leading-relaxed">
+                  Masukkan Klinik ID dari perangkat utama untuk menarik data akun staf Anda ke perangkat ini.
                 </p>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Klinik ID Cloud</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Klinik ID (Contoh: KL-XXXX)</label>
                 <div className="relative">
                   <Cloud size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input 
                     type="text" required value={klinikIdInput} onChange={e => setKlinikIdInput(e.target.value)}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-blue-600 outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all font-black tracking-widest text-center"
-                    placeholder="KL-XXXXXX"
+                    placeholder="KETIK ID DISINI"
                   />
                 </div>
               </div>
@@ -173,7 +171,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
                 className="w-full py-5 bg-slate-900 hover:bg-black text-white font-black rounded-2xl shadow-xl shadow-slate-100 active:scale-95 transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-3"
               >
                 {isLoading ? <RefreshCcw size={18} className="animate-spin" /> : <Zap size={18} />}
-                {isLoading ? 'MENGHUBUNGKAN...' : 'SINKRONKAN SEKARANG'}
+                {isLoading ? 'MENGHUBUNGKAN...' : 'TARIK DATA CLOUD'}
               </button>
 
               <button 
@@ -186,9 +184,6 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
           )}
         </div>
       </div>
-      <p className="mt-8 text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] flex items-center gap-2">
-        <Lock size={12} /> SECURE CLOUD CONNECTION V2.1
-      </p>
     </div>
   );
 };

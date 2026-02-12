@@ -43,7 +43,7 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<AppUser[]>(() => {
     const saved = localStorage.getItem('users');
     return saved ? JSON.parse(saved) : [
-      { id: 'u1', name: 'Nizar Amrullah', username: 'nizaramr', password: 'password123', role: 'Perawat', email: 'nizar@klinik.com', lastActive: '2 menit lalu', status: 'Aktif' },
+      { id: 'u1', name: 'Nizar Amrullah', username: 'nizaramr', password: 'password123', role: 'Perawat', email: 'nizar@klinik.com', lastActive: 'Aktif', status: 'Aktif' },
       { id: 'u2', name: 'Admin Utama', username: 'admin', password: 'adminpassword', role: 'Administrator', email: 'admin@klinik.com', lastActive: 'Aktif', status: 'Aktif' },
     ];
   });
@@ -56,17 +56,23 @@ const App: React.FC = () => {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [medicalRecords, setMedicalRecords] = useState<MedicalEntry[]>([]);
 
-  // --- PERSISTENCE TO LOCALSTORAGE ---
-  const saveAllToLocal = useCallback((data: any) => {
-    if (data.clinicSettings) localStorage.setItem('clinicSettings', JSON.stringify(data.clinicSettings));
-    if (data.users) localStorage.setItem('users', JSON.stringify(data.users));
-    if (data.patients) localStorage.setItem('patients', JSON.stringify(data.patients));
-    if (data.doctors) localStorage.setItem('doctors', JSON.stringify(data.doctors));
-    if (data.medicines) localStorage.setItem('medicines', JSON.stringify(data.medicines));
-    if (data.inventory) localStorage.setItem('inventory', JSON.stringify(data.inventory));
-    if (data.transactions) localStorage.setItem('transactions', JSON.stringify(data.transactions));
-    if (data.queue) localStorage.setItem('queue', JSON.stringify(data.queue));
-    if (data.medicalRecords) localStorage.setItem('medicalRecords', JSON.stringify(data.medicalRecords));
+  // --- PERSISTENCE UTILITY ---
+  const applyDataFromCloud = useCallback((data: any) => {
+    if (!data) return;
+    if (data.clinicSettings) setClinicSettings(data.clinicSettings);
+    if (data.users) setUsers(data.users);
+    if (data.patients) setPatients(data.patients);
+    if (data.doctors) setDoctors(data.doctors);
+    if (data.medicines) setMedicines(data.medicines);
+    if (data.inventory) setInventory(data.inventory);
+    if (data.transactions) setTransactions(data.transactions);
+    if (data.queue) setQueue(data.queue);
+    if (data.medicalRecords) setMedicalRecords(data.medicalRecords);
+    
+    // Simpan ke localStorage segera
+    Object.keys(data).forEach(key => {
+      localStorage.setItem(key, JSON.stringify(data[key]));
+    });
   }, []);
 
   // --- LOAD INITIAL DATA ---
@@ -87,17 +93,15 @@ const App: React.FC = () => {
     if (sRecords) setMedicalRecords(JSON.parse(sRecords));
   }, []);
 
-  // --- CLOUD SYNC LOGIC ---
-  const pushToCloud = useCallback(async (forcedSettings?: ClinicSettings, forcedUsers?: AppUser[]) => {
-    const settings = forcedSettings || clinicSettings;
+  // --- CLOUD SYNC CORE ---
+  const pushToCloud = useCallback(async (forcedData?: any) => {
+    const settings = forcedData?.clinicSettings || clinicSettings;
     if (!settings.isCloudEnabled || !settings.klinikId) return;
     
     setCloudStatus('syncing');
-    const fullData = { 
-      clinicSettings: settings, 
-      users: forcedUsers || users, 
-      patients, doctors, medicines, inventory, transactions, queue, medicalRecords,
-      timestamp: Date.now()
+    const fullData = forcedData || { 
+      clinicSettings, users, patients, doctors, medicines, inventory, transactions, queue, medicalRecords,
+      lastSync: new Date().toISOString()
     };
     
     try {
@@ -113,30 +117,17 @@ const App: React.FC = () => {
     }
   }, [clinicSettings, users, patients, doctors, medicines, inventory, transactions, queue, medicalRecords]);
 
-  const pullFromCloud = useCallback(async (targetId?: string) => {
-    const id = targetId || clinicSettings.klinikId;
-    if (!id) return false;
+  const pullFromCloud = useCallback(async (manualId?: string) => {
+    const targetId = manualId || clinicSettings.klinikId;
+    if (!targetId) return false;
     
     setCloudStatus('syncing');
     try {
-      const response = await fetch(`https://api.npoint.io/${id}`);
-      if (!response.ok) throw new Error("ID Tidak Ditemukan");
-      const remoteData = await response.json();
-      
-      if (remoteData) {
-        // Update states
-        if (remoteData.clinicSettings) setClinicSettings(remoteData.clinicSettings);
-        if (remoteData.users) setUsers(remoteData.users);
-        if (remoteData.patients) setPatients(remoteData.patients);
-        if (remoteData.doctors) setDoctors(remoteData.doctors);
-        if (remoteData.medicines) setMedicines(remoteData.medicines);
-        if (remoteData.inventory) setInventory(remoteData.inventory);
-        if (remoteData.transactions) setTransactions(remoteData.transactions);
-        if (remoteData.queue) setQueue(remoteData.queue);
-        if (remoteData.medicalRecords) setMedicalRecords(remoteData.medicalRecords);
-        
-        // Simpan ke local storage segera
-        saveAllToLocal(remoteData);
+      const response = await fetch(`https://api.npoint.io/${targetId}`);
+      if (!response.ok) throw new Error("Bin Not Found");
+      const data = await response.json();
+      if (data) {
+        applyDataFromCloud(data);
         setCloudStatus('online');
         return true;
       }
@@ -145,32 +136,29 @@ const App: React.FC = () => {
       setCloudStatus('error');
       return false;
     }
-  }, [clinicSettings.klinikId, saveAllToLocal]);
+  }, [clinicSettings.klinikId, applyDataFromCloud]);
 
-  // Handler khusus untuk dipanggil dari halaman Login
+  // Handler dipanggil oleh Login.tsx
   const handleConnectKlinik = async (id: string) => {
     const success = await pullFromCloud(id);
     if (success) {
-      // Pastikan pengaturan sinkronisasi aktif di perangkat baru
-      setClinicSettings(prev => {
-        const updated = { ...prev, klinikId: id, isCloudEnabled: true };
-        localStorage.setItem('clinicSettings', JSON.stringify(updated));
-        return updated;
-      });
+      // Pastikan pengaturan lokal sekarang mengarah ke ID ini
+      setClinicSettings(prev => ({ ...prev, klinikId: id, isCloudEnabled: true }));
+      localStorage.setItem('clinicSettings', JSON.stringify({ ...clinicSettings, klinikId: id, isCloudEnabled: true }));
       return true;
     }
     return false;
   };
 
-  // Auto sync effect
+  // Auto-Pull interval
   useEffect(() => {
     if (clinicSettings.isCloudEnabled && clinicSettings.klinikId) {
-      const interval = setInterval(() => pullFromCloud(), 45000); // Sinkronisasi setiap 45 detik
+      const interval = setInterval(() => pullFromCloud(), 60000); // Setiap 1 menit
       return () => clearInterval(interval);
     }
   }, [clinicSettings.isCloudEnabled, clinicSettings.klinikId, pullFromCloud]);
 
-  // Persist local changes and push to cloud
+  // Push on every local change
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;
@@ -190,7 +178,7 @@ const App: React.FC = () => {
     syncChannel.postMessage('DATA_UPDATED');
     
     if (clinicSettings.isCloudEnabled && clinicSettings.klinikId) {
-      const timeout = setTimeout(() => pushToCloud(), 3000);
+      const timeout = setTimeout(() => pushToCloud(), 2000);
       return () => clearTimeout(timeout);
     }
   }, [clinicSettings, users, patients, doctors, medicines, inventory, transactions, queue, medicalRecords, pushToCloud]);
@@ -238,13 +226,13 @@ const App: React.FC = () => {
           {currentView === ViewType.PENGATURAN && (
             <Settings 
               clinicSettings={clinicSettings} 
-              onUpdateClinicSettings={(s) => { setClinicSettings(s); pushToCloud(s); }} 
+              onUpdateClinicSettings={(s) => { setClinicSettings(s); pushToCloud({ clinicSettings: s, users, patients, doctors, medicines, inventory, transactions, queue, medicalRecords }); }} 
               patients={patients} setPatients={setPatients} 
               doctors={doctors} setDoctors={setDoctors} 
               medicines={medicines} setMedicines={setMedicines} 
               inventory={inventory} setInventory={setInventory} 
               transactions={transactions} setTransactions={setTransactions} 
-              users={users} setUsers={(u) => { setUsers(u); pushToCloud(undefined, u); }} 
+              users={users} setUsers={(u) => { setUsers(u); pushToCloud({ clinicSettings, users: u, patients, doctors, medicines, inventory, transactions, queue, medicalRecords }); }} 
               medicalRecords={medicalRecords} setMedicalRecords={setMedicalRecords} 
             />
           )}
