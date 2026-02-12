@@ -1,17 +1,20 @@
 
 import React, { useState } from 'react';
-import { HeartPulse, ArrowLeft, CheckCircle2, Mail, Lock, User, UserPlus } from 'lucide-react';
+import { HeartPulse, ArrowLeft, CheckCircle2, Mail, Lock, User, UserPlus, AlertCircle } from 'lucide-react';
+import { AppUser } from '../types';
 
 interface LoginProps {
-  onLogin: (username: string) => void;
+  onLogin: (user: AppUser) => void;
+  users: AppUser[];
 }
 
 type AuthState = 'LOGIN' | 'REGISTER' | 'FORGOT_PASSWORD' | 'SUCCESS_RESET';
 
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, users }) => {
   const [authState, setAuthState] = useState<AuthState>('LOGIN');
-  const [username, setUsername] = useState('nizar');
-  const [password, setPassword] = useState('123456');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('adminpassword');
+  const [error, setError] = useState<string | null>(null);
   
   // Registration States
   const [regData, setRegData] = useState({
@@ -26,8 +29,20 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (username.trim()) {
-      onLogin(username);
+    setError(null);
+
+    const foundUser = users.find(
+      u => u.username === username && u.password === password
+    );
+
+    if (foundUser) {
+      if (foundUser.status === 'Aktif') {
+        onLogin(foundUser);
+      } else {
+        setError('Akun Anda saat ini tidak aktif. Silakan hubungi Administrator.');
+      }
+    } else {
+      setError('Username atau password salah.');
     }
   };
 
@@ -63,6 +78,13 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
             </p>
           </div>
         </div>
+
+        {error && (
+          <div className="bg-rose-50 border border-rose-100 p-4 rounded-xl flex items-center gap-3 text-rose-600 animate-in slide-in-from-top-2">
+            <AlertCircle size={18} className="shrink-0" />
+            <p className="text-xs font-bold leading-relaxed">{error}</p>
+          </div>
+        )}
 
         {/* LOGIN VIEW */}
         {authState === 'LOGIN' && (

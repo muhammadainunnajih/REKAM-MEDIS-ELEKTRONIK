@@ -13,16 +13,17 @@ import {
   Settings,
   HeartPulse
 } from 'lucide-react';
-import { ViewType } from '../types';
+import { ViewType, UserRole } from '../types';
 
 interface SidebarProps {
   activeView: ViewType;
   onViewChange: (view: ViewType) => void;
   clinicName: string;
   clinicLogo: string | null;
+  userRole: UserRole;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, clinicName, clinicLogo }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, clinicName, clinicLogo, userRole }) => {
   const menuItems = [
     { type: ViewType.DASHBOARD, icon: LayoutDashboard },
     { type: ViewType.DATA_PASIEN, icon: Users },
@@ -32,9 +33,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, clinicName,
     { type: ViewType.JADWAL, icon: CalendarClock },
     { type: ViewType.INVENTARIS, icon: Package },
     { type: ViewType.LAPORAN, icon: BarChart3 },
-    { type: ViewType.USER_MGMT, icon: UserCog },
-    { type: ViewType.PENGATURAN, icon: Settings },
+    { type: ViewType.USER_MGMT, icon: UserCog, restricted: true },
+    { type: ViewType.PENGATURAN, icon: Settings, restricted: true },
   ];
+
+  // Filter items based on role
+  const filteredItems = menuItems.filter(item => {
+    if (item.restricted && userRole !== 'Administrator') return false;
+    return true;
+  });
 
   return (
     <aside className="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen shadow-sm">
@@ -55,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeView, onViewChange, clinicName,
       </div>
 
       <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
-        {menuItems.map((item) => {
+        {filteredItems.map((item) => {
           const isActive = activeView === item.type;
           return (
             <button

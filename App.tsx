@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ViewType, Patient, Stats, MedicalEntry, Doctor, Medicine, Transaction, QueueItem, InventoryItem, AppUser, ClinicSettings } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
@@ -15,109 +15,157 @@ import UserManagement from './components/UserManagement';
 import Settings from './components/Settings';
 import Login from './components/Login';
 
+// BroadcastChannel for cross-tab sync
+const syncChannel = new BroadcastChannel('emr_sync_channel');
+
 const App: React.FC = () => {
+  // Authentication State
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AppUser | null>(null);
   const [currentView, setCurrentView] = useState<ViewType>(ViewType.DASHBOARD);
-  
-  const [clinicSettings, setClinicSettings] = useState<ClinicSettings>({
-    name: 'Klinik Sehat Utama',
-    logo: null,
-    email: 'kontak@kliniksehat.com',
-    phone: '021-5550123',
-    address: 'Jl. Kesehatan No. 123, Jakarta Selatan',
-    timezone: 'Asia/Jakarta'
+  const [isSyncing, setIsSyncing] = useState(false);
+
+  // Core Data States
+  const [clinicSettings, setClinicSettings] = useState<ClinicSettings>(() => {
+    const saved = localStorage.getItem('clinicSettings');
+    return saved ? JSON.parse(saved) : {
+      name: 'Klinik Sehat Utama',
+      logo: null,
+      email: 'kontak@kliniksehat.com',
+      phone: '021-5550123',
+      address: 'Jl. Kesehatan No. 123, Jakarta Selatan',
+      timezone: 'Asia/Jakarta'
+    };
   });
 
-  const [users, setUsers] = useState<AppUser[]>([
-    { id: 'u1', name: 'Nizar Amrullah', username: 'nizaramr', password: 'password123', role: 'Perawat', email: 'nizar@klinik.com', lastActive: '2 menit lalu', status: 'Aktif' },
-    { id: 'u2', name: 'Admin Utama', username: 'admin', password: 'adminpassword', role: 'Administrator', email: 'admin@klinik.com', lastActive: 'Aktif', status: 'Aktif' },
-    { id: 'u3', name: 'dr. Andi Wijaya', username: 'drandi', password: 'docpassword', role: 'Dokter', email: 'andi@klinik.com', lastActive: '1 jam lalu', status: 'Aktif' },
-  ]);
+  const [users, setUsers] = useState<AppUser[]>(() => {
+    const saved = localStorage.getItem('users');
+    return saved ? JSON.parse(saved) : [
+      { id: 'u1', name: 'Nizar Amrullah', username: 'nizaramr', password: 'password123', role: 'Perawat', email: 'nizar@klinik.com', lastActive: '2 menit lalu', status: 'Aktif' },
+      { id: 'u2', name: 'Admin Utama', username: 'admin', password: 'adminpassword', role: 'Administrator', email: 'admin@klinik.com', lastActive: 'Aktif', status: 'Aktif' },
+      { id: 'u3', name: 'dr. Andi Wijaya', username: 'drandi', password: 'docpassword', role: 'Dokter', email: 'andi@klinik.com', lastActive: '1 jam lalu', status: 'Aktif' },
+    ];
+  });
 
-  const [patients, setPatients] = useState<Patient[]>([
-    { id: '1', name: 'Nizar', rmNumber: 'RM1754813370126', birthDate: '1995-05-12', gender: 'Laki-laki', lastVisit: '10/8/2025', type: 'Umum' },
-    { id: '2', name: 'Dimas', rmNumber: 'RM1754885737056', birthDate: '1992-11-20', gender: 'Laki-laki', lastVisit: '11/8/2025', type: 'BPJS', bpjsClass: 'Kelas 1' },
-    { id: '3', name: 'Ainun Najih', rmNumber: 'RM1762774071291', birthDate: '1988-02-15', gender: 'Perempuan', lastVisit: '10/11/2025', type: 'BPJS', bpjsClass: 'Kelas 3' },
-    { id: '4', name: 'Ainun Najih', rmNumber: 'RM1762783335808', birthDate: '1988-02-15', gender: 'Perempuan', lastVisit: '10/11/2025', type: 'Umum' },
-    { id: '5', name: 'Dimas', rmNumber: 'RM1762783457317', birthDate: '1992-11-20', gender: 'Laki-laki', lastVisit: '10/11/2025', type: 'BPJS', bpjsClass: 'Kelas 2' },
-  ]);
+  const [patients, setPatients] = useState<Patient[]>(() => {
+    const saved = localStorage.getItem('patients');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', name: 'Nizar', rmNumber: 'RM1754813370126', birthDate: '1995-05-12', gender: 'Laki-laki', lastVisit: '10/8/2025', type: 'Umum' },
+      { id: '2', name: 'Dimas', rmNumber: 'RM1754885737056', birthDate: '1992-11-20', gender: 'Laki-laki', lastVisit: '11/8/2025', type: 'BPJS', bpjsClass: 'Kelas 1' },
+      { id: '3', name: 'Ainun Najih', rmNumber: 'RM1762774071291', birthDate: '1988-02-15', gender: 'Perempuan', lastVisit: '10/11/2025', type: 'BPJS', bpjsClass: 'Kelas 3' },
+    ];
+  });
 
-  const [doctors, setDoctors] = useState<Doctor[]>([
-    { id: '1', name: 'dr. Andi Wijaya', specialization: 'Poli Umum', status: 'Tersedia', patientsToday: 12 },
-    { id: '2', name: 'dr. Sarah Pratama', specialization: 'Poli Gigi', status: 'Sibuk', patientsToday: 5 },
-    { id: '3', name: 'dr. Budi Santoso', specialization: 'Poli Anak', status: 'Tersedia', patientsToday: 8 },
-    { id: '4', name: 'dr. Maria Ulfa', specialization: 'Poli Kandungan', status: 'Tidak Aktif', patientsToday: 0 },
-  ]);
+  const [doctors, setDoctors] = useState<Doctor[]>(() => {
+    const saved = localStorage.getItem('doctors');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', name: 'dr. Andi Wijaya', specialization: 'Poli Umum', status: 'Tersedia', patientsToday: 12 },
+      { id: '2', name: 'dr. Sarah Pratama', specialization: 'Poli Gigi', status: 'Sibuk', patientsToday: 5 },
+    ];
+  });
 
-  const [medicines, setMedicines] = useState<Medicine[]>([
-    { id: '1', name: 'Paracetamol 500mg', stock: 1240, price: 5000, category: 'Tablet', type: 'Tablet' },
-    { id: '2', name: 'Amoxicillin 250mg', stock: 85, price: 12000, category: 'Antibiotik', type: 'Antibiotik' },
-    { id: '3', name: 'OBH Combi 100ml', stock: 45, price: 18500, category: 'Sirup', type: 'Sirup' },
-    { id: '4', name: 'Vitamin C 1000mg', stock: 500, price: 2500, category: 'Suplemen', type: 'Suplemen' },
-  ]);
+  const [medicines, setMedicines] = useState<Medicine[]>(() => {
+    const saved = localStorage.getItem('medicines');
+    return saved ? JSON.parse(saved) : [
+      { id: '1', name: 'Paracetamol 500mg', stock: 1240, price: 5000, category: 'Tablet', type: 'Tablet' },
+    ];
+  });
 
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: 'inv1', name: 'Kapas Gulung 500g', stock: 45, unit: 'Roll', category: 'Alat Medis', minStock: 10 },
-    { id: 'inv2', name: 'Sarung Tangan Latex S', stock: 8, unit: 'Box', category: 'Alat Medis', minStock: 15 },
-    { id: 'inv3', name: 'Spuit 3cc', stock: 120, unit: 'Pcs', category: 'Alat Medis', minStock: 50 },
-    { id: 'inv4', name: 'Alkohol 70% 1L', stock: 2, unit: 'Botol', category: 'Cairan', minStock: 5 },
-  ]);
+  const [inventory, setInventory] = useState<InventoryItem[]>(() => {
+    const saved = localStorage.getItem('inventory');
+    return saved ? JSON.parse(saved) : [
+      { id: 'inv1', name: 'Kapas Gulung 500g', stock: 45, unit: 'Roll', category: 'Alat Medis', minStock: 10 },
+    ];
+  });
 
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: 'TRX-175481',
-      patientId: '1',
-      patientName: 'Nizar',
-      date: '10/08/2025',
-      items: [
-        { name: 'Konsultasi Dokter Umum', price: 50000, quantity: 1 },
-        { name: 'Paracetamol 500mg', price: 5000, quantity: 10 }
-      ],
-      total: 100000,
-      status: 'Lunas',
-      paymentMethod: 'Tunai'
-    },
-    {
-      id: 'TRX-175482',
-      patientId: '2',
-      patientName: 'Dimas',
-      date: '11/08/2025',
-      items: [
-        { name: 'Konsultasi Poli Gigi', price: 75000, quantity: 1 },
-        { name: 'Tindakan Pembersihan Karang', price: 250000, quantity: 1 }
-      ],
-      total: 325000,
-      status: 'Menunggu'
-    }
-  ]);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => {
+    const saved = localStorage.getItem('transactions');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const [queue, setQueue] = useState<QueueItem[]>([
-    { id: 'q1', no: 'A-01', patientId: '1', patientName: 'Nizar', poli: 'Umum', status: 'Diperiksa', time: '08:00' },
-    { id: 'q2', no: 'A-02', patientId: '2', patientName: 'Dimas', poli: 'Umum', status: 'Menunggu', time: '08:15' },
-    { id: 'q3', no: 'G-01', patientId: '3', patientName: 'Ainun Najih', poli: 'Gigi', status: 'Menunggu', time: '08:30' },
-    { id: 'q4', no: 'A-03', patientId: '5', patientName: 'Dimas', poli: 'Umum', status: 'Menunggu', time: '08:45' },
-  ]);
+  const [queue, setQueue] = useState<QueueItem[]>(() => {
+    const saved = localStorage.getItem('queue');
+    return saved ? JSON.parse(saved) : [];
+  });
 
-  const [medicalRecords, setMedicalRecords] = useState<MedicalEntry[]>([
-    {
-      id: 'mr1',
-      patientId: '1',
-      date: '10/08/2025',
-      doctorName: 'dr. Andi Wijaya',
-      subjective: 'Demam tinggi sejak 2 hari yang lalu, pusing.',
-      objective: 'Suhu 38.5C, TD 120/80, Nadi 88x/menit.',
-      assessment: 'Febris susp. Typhoid Fever',
-      plan: 'Paracetamol 500mg 3x1, Cek Darah Lengkap, Bedrest.',
-      isProcessed: false
-    }
-  ]);
+  const [medicalRecords, setMedicalRecords] = useState<MedicalEntry[]>(() => {
+    const saved = localStorage.getItem('medicalRecords');
+    return saved ? JSON.parse(saved) : [];
+  });
 
+  // --- Persistence Logic ---
+  const saveAllToStorage = useCallback(() => {
+    setIsSyncing(true);
+    localStorage.setItem('clinicSettings', JSON.stringify(clinicSettings));
+    localStorage.setItem('users', JSON.stringify(users));
+    localStorage.setItem('patients', JSON.stringify(patients));
+    localStorage.setItem('doctors', JSON.stringify(doctors));
+    localStorage.setItem('medicines', JSON.stringify(medicines));
+    localStorage.setItem('inventory', JSON.stringify(inventory));
+    localStorage.setItem('transactions', JSON.stringify(transactions));
+    localStorage.setItem('queue', JSON.stringify(queue));
+    localStorage.setItem('medicalRecords', JSON.stringify(medicalRecords));
+    
+    // Notify other tabs
+    syncChannel.postMessage('DATA_UPDATED');
+    
+    setTimeout(() => setIsSyncing(false), 500);
+  }, [clinicSettings, users, patients, doctors, medicines, inventory, transactions, queue, medicalRecords]);
+
+  // Load data from Storage on external update (e.g., other tabs)
+  const reloadFromStorage = useCallback(() => {
+    const sSettings = localStorage.getItem('clinicSettings');
+    if (sSettings) setClinicSettings(JSON.parse(sSettings));
+    
+    const sUsers = localStorage.getItem('users');
+    if (sUsers) setUsers(JSON.parse(sUsers));
+    
+    const sPatients = localStorage.getItem('patients');
+    if (sPatients) setPatients(JSON.parse(sPatients));
+    
+    const sDoctors = localStorage.getItem('doctors');
+    if (sDoctors) setDoctors(JSON.parse(sDoctors));
+    
+    const sMedicines = localStorage.getItem('medicines');
+    if (sMedicines) setMedicines(JSON.parse(sMedicines));
+    
+    const sInventory = localStorage.getItem('inventory');
+    if (sInventory) setInventory(JSON.parse(sInventory));
+    
+    const sTransactions = localStorage.getItem('transactions');
+    if (sTransactions) setTransactions(JSON.parse(sTransactions));
+    
+    const sQueue = localStorage.getItem('queue');
+    if (sQueue) setQueue(JSON.parse(sQueue));
+    
+    const sRecords = localStorage.getItem('medicalRecords');
+    if (sRecords) setMedicalRecords(JSON.parse(sRecords));
+  }, []);
+
+  // Listen for sync messages from other tabs
+  useEffect(() => {
+    const handleSync = (event: MessageEvent) => {
+      if (event.data === 'DATA_UPDATED') {
+        reloadFromStorage();
+      }
+    };
+    syncChannel.addEventListener('message', handleSync);
+    return () => syncChannel.removeEventListener('message', handleSync);
+  }, [reloadFromStorage]);
+
+  // Save to storage whenever any key data changes
+  useEffect(() => {
+    saveAllToStorage();
+  }, [saveAllToStorage]);
+
+  // Stats derivation
   const stats: Stats = {
     totalPatients: patients.length,
     totalMedicalRecords: medicalRecords.length,
     patientsToday: queue.length
   };
 
+  // --- Handlers ---
   const handleUpdatePatient = (updatedPatient: Patient) => {
     setPatients(prev => prev.map(p => p.id === updatedPatient.id ? updatedPatient : p));
   };
@@ -292,16 +340,30 @@ const App: React.FC = () => {
     setUsers(prev => prev.filter(u => u.id !== id));
   };
 
-  const handleLogin = (username: string) => {
+  const handleLogin = (user: AppUser) => {
     setIsAuthenticated(true);
+    setCurrentUser(user);
     setCurrentView(ViewType.DASHBOARD);
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
+    setCurrentUser(null);
   };
 
   const renderView = () => {
+    const isRestricted = (currentView === ViewType.USER_MGMT || currentView === ViewType.PENGATURAN) && currentUser?.role !== 'Administrator';
+    
+    if (isRestricted) {
+      return <Dashboard 
+        stats={stats} 
+        latestPatients={patients.slice(0, 5)} 
+        onViewAll={() => setCurrentView(ViewType.DATA_PASIEN)} 
+        onAddPatient={() => setCurrentView(ViewType.DATA_PASIEN)} 
+        clinicName={clinicSettings.name}
+      />;
+    }
+
     switch (currentView) {
       case ViewType.DASHBOARD:
         return <Dashboard 
@@ -409,7 +471,7 @@ const App: React.FC = () => {
   };
 
   if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+    return <Login onLogin={handleLogin} users={users} />;
   }
 
   return (
@@ -419,9 +481,10 @@ const App: React.FC = () => {
         onViewChange={setCurrentView} 
         clinicName={clinicSettings.name}
         clinicLogo={clinicSettings.logo}
+        userRole={currentUser?.role || 'Perawat'}
       />
       <div className="flex-1 flex flex-col min-w-0">
-        <Header onLogout={handleLogout} />
+        <Header onLogout={handleLogout} currentUser={currentUser} isSyncing={isSyncing} />
         <main className="flex-1 p-6 overflow-y-auto">
           {renderView()}
         </main>
