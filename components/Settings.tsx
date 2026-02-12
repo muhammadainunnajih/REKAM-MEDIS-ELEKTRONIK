@@ -6,11 +6,23 @@ import { ClinicSettings, Patient, Doctor, Medicine, InventoryItem, Transaction, 
 interface SettingsProps {
   clinicSettings: ClinicSettings;
   onUpdateClinicSettings: (settings: ClinicSettings) => void;
-  patients: Patient[]; doctors: Doctor[]; medicines: Medicine[]; inventory: InventoryItem[]; transactions: Transaction[]; users: AppUser[]; medicalRecords: MedicalEntry[];
-  setPatients: any; setDoctors: any; setMedicines: any; setInventory: any; setTransactions: any; setUsers: any; setMedicalRecords: any;
+  patients: Patient[]; 
+  doctors: Doctor[]; 
+  medicines: Medicine[]; 
+  inventory: InventoryItem[]; 
+  transactions: Transaction[]; 
+  users: AppUser[]; 
+  medicalRecords: MedicalEntry[];
+  setPatients: (p: Patient[]) => void; 
+  setDoctors: (d: Doctor[]) => void; 
+  setMedicines: (m: Medicine[]) => void; 
+  setInventory: (i: InventoryItem[]) => void; 
+  setTransactions: (t: Transaction[]) => void; 
+  setUsers: (u: AppUser[]) => void; 
+  setMedicalRecords: (mr: MedicalEntry[]) => void;
 }
 
-const Settings: React.FC<SettingsProps> = ({ clinicSettings, onUpdateClinicSettings, patients, doctors, medicines, inventory, transactions, users, medicalRecords }) => {
+const Settings: React.FC<SettingsProps> = ({ clinicSettings, onUpdateClinicSettings, patients, doctors, medicines, inventory, transactions, users, medicalRecords, setUsers }) => {
   const [activeTab, setActiveTab] = useState<'Umum' | 'Cloud'>('Umum');
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);

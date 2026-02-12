@@ -105,7 +105,6 @@ const App: React.FC = () => {
     };
     
     try {
-      // Menggunakan PUT untuk memperbarui data di npoint.io yang lebih stabil dibanding POST ke ID spesifik
       const response = await fetch(`https://api.npoint.io/${settings.klinikId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
@@ -190,6 +189,7 @@ const App: React.FC = () => {
   if (!isAuthenticated) return (
     <Login 
       onLogin={(user) => { setIsAuthenticated(true); setCurrentUser(user); }} 
+      onRegister={(newUser: AppUser) => { setUsers(prev => [...prev, newUser]); }}
       users={users} 
       onConnectKlinik={handleConnectKlinik}
     />
@@ -230,7 +230,7 @@ const App: React.FC = () => {
               medicines={medicines} setMedicines={setMedicines} 
               inventory={inventory} setInventory={setInventory} 
               transactions={transactions} setTransactions={setTransactions} 
-              users={users} setUsers={(u) => { setUsers(u); pushToCloud({ clinicSettings, users: u, patients, doctors, medicines, inventory, transactions, queue, medicalRecords }); }} 
+              users={users} setUsers={(u: AppUser[]) => { setUsers(u); pushToCloud({ clinicSettings, users: u, patients, doctors, medicines, inventory, transactions, queue, medicalRecords }); }} 
               medicalRecords={medicalRecords} setMedicalRecords={setMedicalRecords} 
             />
           )}

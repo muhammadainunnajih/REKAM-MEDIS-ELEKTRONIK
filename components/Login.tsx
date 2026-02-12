@@ -1,22 +1,33 @@
 
 import React, { useState } from 'react';
-import { HeartPulse, ArrowLeft, Cloud, Lock, User, RefreshCcw, AlertCircle, Zap, Globe, CheckCircle2 } from 'lucide-react';
-import { AppUser } from '../types';
+import { HeartPulse, ArrowLeft, Cloud, Lock, User, RefreshCcw, AlertCircle, Zap, Globe, CheckCircle2, Mail, UserPlus, ShieldAlert } from 'lucide-react';
+import { AppUser, UserRole } from '../types';
 
 interface LoginProps {
   onLogin: (user: AppUser) => void;
+  onRegister: (user: AppUser) => void;
   users: AppUser[];
   onConnectKlinik: (id: string) => Promise<boolean>;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
-  const [view, setView] = useState<'LOGIN' | 'CONNECT'>('LOGIN');
+const Login: React.FC<LoginProps> = ({ onLogin, onRegister, users, onConnectKlinik }) => {
+  const [view, setView] = useState<'LOGIN' | 'CONNECT' | 'FORGOT' | 'REGISTER'>('LOGIN');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [klinikIdInput, setKlinikIdInput] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Registration states
+  const [regName, setRegName] = useState('');
+  const [regEmail, setRegEmail] = useState('');
+  const [regUsername, setRegUsername] = useState('');
+  const [regPassword, setRegPassword] = useState('');
+  const [regRole, setRegRole] = useState<UserRole>('Perawat');
+
+  // Forgot password state
+  const [forgotEmail, setForgotEmail] = useState('');
 
   const handleLoginSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,6 +39,46 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
     } else {
       setError('Username/Password salah. Pastikan data sudah tersinkron jika ini perangkat baru.');
     }
+  };
+
+  const handleRegisterSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    // Basic validation
+    if (users.some(u => u.username.toLowerCase() === regUsername.toLowerCase())) {
+      setError('Username sudah digunakan.');
+      return;
+    }
+
+    const newUser: AppUser = {
+      id: `u-${Date.now()}`,
+      name: regName,
+      email: regEmail,
+      username: regUsername,
+      password: regPassword,
+      role: regRole,
+      lastActive: 'Baru Terdaftar',
+      status: 'Aktif'
+    };
+
+    onRegister(newUser);
+    setSuccess('Pendaftaran berhasil! Silakan login.');
+    setTimeout(() => {
+      setUsername(regUsername);
+      setView('LOGIN');
+      setSuccess(null);
+    }, 2000);
+  };
+
+  const handleForgotSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setSuccess(`Instruksi pemulihan telah dikirim ke ${forgotEmail}. Silakan periksa kotak masuk atau hubungi administrator.`);
+    setTimeout(() => {
+      setView('LOGIN');
+      setSuccess(null);
+    }, 4000);
   };
 
   const handleConnectCloud = async (e: React.FormEvent) => {
@@ -77,7 +128,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
           )}
 
           {view === 'LOGIN' && (
-            <form onSubmit={handleLoginSubmit} className="space-y-5">
+            <form onSubmit={handleLoginSubmit} className="space-y-5 animate-in fade-in">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username Staf</label>
                 <div className="relative">
@@ -86,7 +137,10 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Password</label>
+                <div className="flex justify-between items-center ml-1">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                  <button type="button" onClick={() => setView('FORGOT')} className="text-[10px] font-black text-blue-600 hover:underline uppercase tracking-widest">Lupa Password?</button>
+                </div>
                 <div className="relative">
                   <Lock size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
                   <input type="password" required value={password} onChange={e => setPassword(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all" placeholder="••••••••" />
@@ -94,11 +148,68 @@ const Login: React.FC<LoginProps> = ({ onLogin, users, onConnectKlinik }) => {
               </div>
               <button type="submit" className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-2xl shadow-xl shadow-blue-100 text-xs uppercase tracking-widest transition-all active:scale-95">Masuk Sistem</button>
               
-              <div className="pt-6 border-t border-slate-50 text-center">
+              <div className="pt-6 border-t border-slate-50 flex flex-col gap-3">
+                <button type="button" onClick={() => setView('REGISTER')} className="text-xs font-black text-slate-600 flex items-center justify-center gap-2 mx-auto hover:bg-slate-50 px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest border border-slate-100 w-full">
+                  <UserPlus size={14} className="text-blue-500" /> Daftar Akun Baru
+                </button>
                 <button type="button" onClick={() => setView('CONNECT')} className="text-xs font-black text-blue-600 flex items-center justify-center gap-2 mx-auto hover:bg-blue-50 px-4 py-2.5 rounded-xl transition-all uppercase tracking-widest">
                   <Globe size={14} /> Hubungkan Klinik ID Baru
                 </button>
               </div>
+            </form>
+          )}
+
+          {view === 'REGISTER' && (
+            <form onSubmit={handleRegisterSubmit} className="space-y-4 animate-in slide-in-from-right-4">
+               <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Nama Lengkap</label>
+                <input type="text" required value={regName} onChange={e => setRegName(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400" placeholder="dr. Nama Lengkap" />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Email</label>
+                <input type="email" required value={regEmail} onChange={e => setRegEmail(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400" placeholder="nama@email.com" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Username</label>
+                  <input type="text" required value={regUsername} onChange={e => setRegUsername(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400" placeholder="user123" />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                  <input type="password" required value={regPassword} onChange={e => setRegPassword(e.target.value)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400" placeholder="••••••••" />
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Peran (Role)</label>
+                <select value={regRole} onChange={e => setRegRole(e.target.value as UserRole)} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold outline-none focus:border-blue-400">
+                  <option value="Perawat">Perawat / Staf Administrasi</option>
+                  <option value="Dokter">Dokter</option>
+                  <option value="Apoteker">Apoteker</option>
+                  <option value="Kasir">Kasir</option>
+                </select>
+              </div>
+              <button type="submit" className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl shadow-lg shadow-blue-100 text-xs uppercase tracking-widest transition-all">Daftar Sekarang</button>
+              <button type="button" onClick={() => setView('LOGIN')} className="w-full text-xs font-black text-slate-400 flex items-center justify-center gap-2 uppercase tracking-widest mt-2"><ArrowLeft size={14} /> Kembali ke Login</button>
+            </form>
+          )}
+
+          {view === 'FORGOT' && (
+            <form onSubmit={handleForgotSubmit} className="space-y-6 animate-in slide-in-from-right-4">
+               <div className="bg-blue-50 p-5 rounded-2xl border border-blue-100 flex items-start gap-4">
+                <ShieldAlert className="text-blue-600 shrink-0" size={24} />
+                <p className="text-[10px] text-blue-600 font-bold leading-relaxed">Masukkan email terdaftar Anda. Kami akan mengirimkan instruksi pemulihan atau hubungi Admin Klinik untuk reset password secara manual.</p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Terdaftar</label>
+                <div className="relative">
+                  <Mail size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                  <input type="email" required value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm font-bold outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-50 transition-all" placeholder="nama@email.com" />
+                </div>
+              </div>
+              <button type="submit" className="w-full py-5 bg-slate-900 text-white font-black rounded-2xl shadow-xl text-xs uppercase tracking-widest flex items-center justify-center gap-3 transition-all active:scale-95">
+                Kirim Instruksi
+              </button>
+              <button type="button" onClick={() => setView('LOGIN')} className="w-full text-xs font-black text-slate-400 flex items-center justify-center gap-2 uppercase tracking-widest"><ArrowLeft size={14} /> Batal</button>
             </form>
           )}
 
