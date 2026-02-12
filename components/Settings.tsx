@@ -5,7 +5,6 @@ import {
   Camera, Check, AlertCircle, Phone, Clock, ShieldCheck, 
   Database, Zap, Key, CreditCard, Trash2, Upload, FileSpreadsheet, Download, RefreshCcw, Cloud, Copy
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
 import { 
   ClinicSettings, Patient, Doctor, Medicine, InventoryItem, 
   Transaction, AppUser, MedicalEntry 
@@ -33,15 +32,13 @@ interface SettingsProps {
 type SettingsTab = 'Umum' | 'Cloud' | 'Keamanan' | 'Integrasi';
 
 const Settings: React.FC<SettingsProps> = ({ 
-  clinicSettings, onUpdateClinicSettings, patients, setPatients, doctors, setDoctors,
-  medicines, setMedicines, inventory, setInventory, transactions, setTransactions,
-  users, setUsers, medicalRecords, setMedicalRecords
+  clinicSettings, onUpdateClinicSettings, patients, doctors, medicines, inventory, transactions, users, medicalRecords
 }) => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('Umum');
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [localSettings, setLocalSettings] = useState<ClinicSettings>({ ...clinicSettings });
   const [showSuccess, setShowSuccess] = useState(false);
-  const importFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setLocalSettings({ ...clinicSettings }); }, [clinicSettings]);
 
@@ -52,12 +49,39 @@ const Settings: React.FC<SettingsProps> = ({
       setIsSaving(false);
       setShowSuccess(true);
       setTimeout(() => setShowSuccess(false), 3000);
-    }, 1000);
+    }, 800);
   };
 
-  const generateKlinikId = () => {
-    const id = Math.random().toString(36).substring(2, 10).toUpperCase();
-    setLocalSettings({...localSettings, klinikId: id});
+  // Fungsi baru untuk mendaftarkan ID resmi ke npoint.io
+  const generateOfficialKlinikId = async () => {
+    setIsGenerating(true);
+    try {
+      // Data inisialisasi untuk membuat bin baru di npoint
+      const initData = { 
+        clinicSettings: { ...localSettings, isCloudEnabled: true }, 
+        users, patients, doctors, medicines, inventory, transactions, medicalRecords,
+        status: "ACTIVE_INITIALIZED"
+      };
+
+      const response = await fetch('https://api.npoint.io/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(initData)
+      });
+
+      if (!response.ok) throw new Error("Gagal generate ID");
+      
+      const result = await response.json();
+      // npoint mengembalikan ID unik dalam field 'id'
+      if (result && result.id) {
+        setLocalSettings({ ...localSettings, klinikId: result.id, isCloudEnabled: true });
+        alert(`Berhasil membuat ID Cloud: ${result.id}. Simpan perubahan untuk mengaktifkan.`);
+      }
+    } catch (error) {
+      alert("Gagal membuat ID Cloud. Periksa koneksi internet Anda.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -70,7 +94,7 @@ const Settings: React.FC<SettingsProps> = ({
         {showSuccess && <div className="text-emerald-600 font-bold text-xs bg-emerald-50 px-4 py-2 rounded-xl border border-emerald-100 animate-bounce">Perubahan Disimpan!</div>}
       </div>
 
-      <div className="bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[500px]">
+      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden flex flex-col md:flex-row min-h-[500px]">
         <div className="w-full md:w-64 bg-slate-50/50 border-r border-slate-100 p-4 space-y-1">
           {[
             { id: 'Umum', icon: Laptop, label: 'Identitas Klinik' },
@@ -117,8 +141,8 @@ const Settings: React.FC<SettingsProps> = ({
                      <Cloud size={40} className="text-white" />
                    </div>
                    <div className="text-center md:text-left">
-                     <h3 className="text-2xl font-black mb-2">Cloud Sync Multi-Device</h3>
-                     <p className="text-sm text-blue-100 max-w-md">Gunakan Klinik ID untuk menghubungkan aplikasi Anda di Tablet, Laptop, atau PC lainnya. Data pasien dan user akan tersinkronisasi otomatis.</p>
+                     <h3 className="text-2xl font-black mb-2">Cloud Sinkronisasi</h3>
+                     <p className="text-sm text-blue-100 max-w-md">Aktifkan sinkronisasi untuk menggunakan data yang sama di banyak perangkat secara real-time.</p>
                    </div>
                 </div>
               </div>
@@ -126,7 +150,7 @@ const Settings: React.FC<SettingsProps> = ({
               <div className="space-y-6">
                  <div className="flex items-center justify-between p-6 border border-slate-100 rounded-3xl bg-slate-50/30">
                    <div>
-                     <h4 className="font-bold text-slate-800">Aktifkan Sinkronisasi</h4>
+                     <h4 className="font-bold text-slate-800">Status Sinkronisasi</h4>
                      <p className="text-xs text-slate-400 mt-1">Nyalakan fitur untuk mulai berbagi data antar perangkat.</p>
                    </div>
                    <button 
@@ -138,24 +162,25 @@ const Settings: React.FC<SettingsProps> = ({
                  </div>
 
                  <div className="space-y-3">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Klinik ID (Kode Sinkronisasi)</label>
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Klinik ID Cloud</label>
                     <div className="flex gap-3">
                       <input 
                         type="text" 
                         value={localSettings.klinikId}
-                        onChange={(e) => setLocalSettings({...localSettings, klinikId: e.target.value.toUpperCase()})}
-                        className="flex-1 px-5 py-4 bg-white border-2 border-slate-100 rounded-2xl text-xl font-black text-blue-600 tracking-[0.2em] outline-none focus:border-blue-400"
-                        placeholder="MASUKKAN KODE"
+                        onChange={(e) => setLocalSettings({...localSettings, klinikId: e.target.value})}
+                        className="flex-1 px-5 py-4 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xl font-black text-blue-600 tracking-widest outline-none focus:border-blue-400 text-center"
+                        placeholder="KL-XXXXXX"
                       />
                       <button 
-                        onClick={generateKlinikId}
-                        className="bg-slate-900 text-white px-6 py-4 rounded-2xl font-bold text-sm hover:bg-black transition-all"
+                        onClick={generateOfficialKlinikId}
+                        disabled={isGenerating}
+                        className="bg-slate-900 text-white px-6 py-4 rounded-2xl font-bold text-xs uppercase hover:bg-black transition-all disabled:opacity-50"
                       >
-                        Generate ID
+                        {isGenerating ? 'Loading...' : 'Daftar ID Baru'}
                       </button>
                     </div>
                     <p className="text-[10px] text-orange-500 font-bold italic flex items-center gap-2">
-                      <AlertCircle size={14}/> Jangan bagikan Klinik ID ini kepada siapapun di luar klinik Anda.
+                      <AlertCircle size={14}/> Catat ID ini dan gunakan di halaman login perangkat lain.
                     </p>
                  </div>
               </div>
@@ -165,15 +190,11 @@ const Settings: React.FC<SettingsProps> = ({
           {activeTab === 'Keamanan' && (
             <div className="space-y-6 animate-in fade-in">
               <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-                <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Shield size={18} className="text-blue-500" /> Kebijakan Akses</h4>
+                <h4 className="font-bold text-slate-800 flex items-center gap-2 mb-4"><Shield size={18} className="text-blue-500" /> Keamanan Database</h4>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Enkripsi Data Cloud</span>
-                    <span className="text-emerald-600 font-black">AKTIF (AES-256)</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-slate-600">Multi-Session Login</span>
-                    <span className="text-emerald-600 font-black">DIIZINKAN</span>
+                    <span className="text-slate-600">Protokol Sync</span>
+                    <span className="text-emerald-600 font-black">HTTPS (TLS 1.3)</span>
                   </div>
                 </div>
               </div>
@@ -186,10 +207,10 @@ const Settings: React.FC<SettingsProps> = ({
         <button 
           onClick={handleSave} 
           disabled={isSaving}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-3.5 rounded-2xl font-black flex items-center gap-2 shadow-xl shadow-blue-100 active:scale-95 transition-all"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-10 py-4 rounded-2xl font-black flex items-center gap-2 shadow-xl shadow-blue-100 active:scale-95 transition-all text-sm uppercase tracking-widest"
         >
           {isSaving ? <RefreshCcw size={18} className="animate-spin" /> : <Save size={18} />} 
-          {isSaving ? 'MEMPROSES...' : 'SIMPAN SEMUA PENGATURAN'}
+          {isSaving ? 'Menyimpan...' : 'Simpan Pengaturan'}
         </button>
       </div>
     </div>
