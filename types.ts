@@ -15,11 +15,11 @@ export interface MedicalEntry {
   patientId: string;
   date: string;
   doctorName: string;
-  subjective: string; // Keluhan utama
-  objective: string;  // Pemeriksaan fisik/tanda vital
-  assessment: string; // Diagnosa
-  plan: string;       // Terapi/Resep/Tindak lanjut
-  isProcessed?: boolean; // Status penyiapan obat di apotek
+  subjective: string; 
+  objective: string;  
+  assessment: string; 
+  plan: string;       
+  isProcessed?: boolean; 
 }
 
 export interface Doctor {
@@ -101,6 +101,8 @@ export interface ClinicSettings {
   phone: string;
   address: string;
   timezone: string;
+  klinikId?: string; // ID unik untuk sinkronisasi antar perangkat
+  isCloudEnabled?: boolean;
 }
 
 export enum ViewType {

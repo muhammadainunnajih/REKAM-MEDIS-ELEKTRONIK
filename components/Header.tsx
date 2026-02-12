@@ -1,15 +1,16 @@
 
 import React, { useState, useEffect } from 'react';
-import { LogOut, RefreshCcw } from 'lucide-react';
+import { LogOut, RefreshCcw, Cloud, CloudOff, CloudRain } from 'lucide-react';
 import { AppUser } from '../types';
 
 interface HeaderProps {
   onLogout: () => void;
   currentUser: AppUser | null;
-  isSyncing?: boolean;
+  cloudStatus?: 'offline' | 'online' | 'syncing' | 'error';
+  onSync?: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onLogout, currentUser, isSyncing }) => {
+const Header: React.FC<HeaderProps> = ({ onLogout, currentUser, cloudStatus = 'offline', onSync }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -17,63 +18,59 @@ const Header: React.FC<HeaderProps> = ({ onLogout, currentUser, isSyncing }) => 
     return () => clearInterval(timer);
   }, []);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('id-ID', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
+  const getStatusInfo = () => {
+    switch(cloudStatus) {
+      case 'online': return { icon: Cloud, color: 'text-emerald-500', label: 'Terhubung' };
+      case 'syncing': return { icon: RefreshCcw, color: 'text-blue-500 animate-spin', label: 'Sinkronisasi' };
+      case 'error': return { icon: CloudRain, color: 'text-rose-500', label: 'Error' };
+      default: return { icon: CloudOff, color: 'text-slate-400', label: 'Offline' };
+    }
   };
 
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: false
-    });
-  };
+  const status = getStatusInfo();
 
   return (
     <header className="bg-white border-b border-slate-200 px-8 py-4 flex justify-between items-center sticky top-0 z-10 shadow-sm">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-6">
         <div>
-          <h2 className="text-xl font-bold text-slate-800">Sistem Rekam Medis Elektronik</h2>
-          <div className="flex items-center gap-2">
-            <p className="text-sm text-slate-500">Data Terpusat & Real-time</p>
-            {isSyncing && (
-               <div className="flex items-center gap-1 bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[10px] font-black uppercase animate-pulse">
-                 <RefreshCcw size={10} className="animate-spin" /> Sinkronisasi...
-               </div>
-            )}
+          <h2 className="text-xl font-bold text-slate-800">EMR Dashboard</h2>
+          <div className="flex items-center gap-3">
+             <div 
+              onClick={onSync}
+              className={`flex items-center gap-1.5 cursor-pointer hover:bg-slate-50 px-2 py-0.5 rounded transition-colors ${status.color}`}
+              title="Klik untuk paksa sinkronisasi"
+             >
+               <status.icon size={14} />
+               <span className="text-[10px] font-black uppercase tracking-widest">{status.label}</span>
+             </div>
+             <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Multi-Device Enabled</p>
           </div>
         </div>
       </div>
 
       <div className="flex items-center gap-6">
         <div className="text-right hidden md:block">
-          <p className="font-bold text-lg text-slate-800 tabular-nums">{formatTime(time)}</p>
-          <p className="text-xs text-slate-500">{formatDate(time)}</p>
+          <p className="font-bold text-lg text-slate-800 tabular-nums">
+            {time.toLocaleTimeString('id-ID', { hour12: false })}
+          </p>
+          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tighter">
+            {time.toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' })}
+          </p>
         </div>
 
-        <div className="h-10 w-px bg-slate-200 hidden md:block"></div>
+        <div className="h-10 w-px bg-slate-200"></div>
 
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <p className="font-bold text-sm text-slate-800 leading-tight">{currentUser?.name || 'Guest'}</p>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-wider">{currentUser?.role || 'Unassigned'}</p>
-          </div>
-          <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center font-bold text-slate-400 border border-slate-200">
-            {currentUser?.name?.charAt(0) || 'U'}
+            <p className="font-bold text-sm text-slate-800 leading-tight">{currentUser?.name}</p>
+            <p className="text-[10px] text-blue-600 font-black uppercase tracking-wider">{currentUser?.role}</p>
           </div>
           <button 
             onClick={onLogout}
-            className="flex items-center gap-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white px-3 py-2 rounded-xl text-sm font-bold transition-all active:scale-95 ml-2"
+            className="p-2.5 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-xl transition-all active:scale-90"
             title="Keluar"
           >
-            <LogOut size={16} />
-            <span className="hidden lg:inline">Keluar</span>
+            <LogOut size={18} />
           </button>
         </div>
       </div>
