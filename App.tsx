@@ -71,7 +71,7 @@ const App: React.FC = () => {
     
     // Simpan ke localStorage segera
     Object.keys(data).forEach(key => {
-      localStorage.setItem(key, JSON.stringify(data[key]));
+      if (data[key]) localStorage.setItem(key, JSON.stringify(data[key]));
     });
   }, []);
 
@@ -105,8 +105,9 @@ const App: React.FC = () => {
     };
     
     try {
+      // Menggunakan PUT untuk memperbarui data di npoint.io yang lebih stabil dibanding POST ke ID spesifik
       const response = await fetch(`https://api.npoint.io/${settings.klinikId}`, {
-        method: 'POST',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(fullData)
       });
@@ -138,27 +139,24 @@ const App: React.FC = () => {
     }
   }, [clinicSettings.klinikId, applyDataFromCloud]);
 
-  // Handler dipanggil oleh Login.tsx
   const handleConnectKlinik = async (id: string) => {
     const success = await pullFromCloud(id);
     if (success) {
-      // Pastikan pengaturan lokal sekarang mengarah ke ID ini
-      setClinicSettings(prev => ({ ...prev, klinikId: id, isCloudEnabled: true }));
-      localStorage.setItem('clinicSettings', JSON.stringify({ ...clinicSettings, klinikId: id, isCloudEnabled: true }));
+      const updatedSettings = { ...clinicSettings, klinikId: id, isCloudEnabled: true };
+      setClinicSettings(updatedSettings);
+      localStorage.setItem('clinicSettings', JSON.stringify(updatedSettings));
       return true;
     }
     return false;
   };
 
-  // Auto-Pull interval
   useEffect(() => {
     if (clinicSettings.isCloudEnabled && clinicSettings.klinikId) {
-      const interval = setInterval(() => pullFromCloud(), 60000); // Setiap 1 menit
+      const interval = setInterval(() => pullFromCloud(), 60000);
       return () => clearInterval(interval);
     }
   }, [clinicSettings.isCloudEnabled, clinicSettings.klinikId, pullFromCloud]);
 
-  // Push on every local change
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false;

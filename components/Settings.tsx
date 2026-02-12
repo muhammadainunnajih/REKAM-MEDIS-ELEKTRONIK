@@ -54,7 +54,7 @@ const Settings: React.FC<SettingsProps> = ({ clinicSettings, onUpdateClinicSetti
         alert(`BERHASIL! Simpan ID Klinik ini: ${result.id}\nGunakan ID ini untuk menghubungkan perangkat lain.`);
       }
     } catch (error) {
-      alert("Gagal membuat ID Cloud. Periksa koneksi internet Anda.");
+      alert("Gagal membuat ID Cloud. Periksa koneksi internet Anda atau coba lagi nanti.");
     } finally { setIsGenerating(false); }
   };
 
