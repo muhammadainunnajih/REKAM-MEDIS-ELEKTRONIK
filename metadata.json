@@ -1,0 +1,8 @@
+{
+  "name": "Klinik Sehat - Electronic Medical Record",
+  "description": "A professional EMR (Electronic Medical Record) system featuring patient management, doctor scheduling, pharmacy, and AI-powered medical insights.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
